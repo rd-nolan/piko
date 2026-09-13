@@ -3,6 +3,12 @@ package com.valcub.piko.captcha;
 import com.valcub.piko.Piko;
 import com.valcub.piko.theme.PikoTheme;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.StringReader;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -51,5 +57,28 @@ class CaptchaGeneratorTest {
         CaptchaResult second = PikoCaptcha.builder().seed(2).build().generate();
 
         assertNotEquals(first.svg(), second.svg());
+    }
+
+    @Test
+    void everyBuiltInThemeProducesParseableSvg() throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+
+        for (PikoTheme theme : PikoTheme.values()) {
+            CaptchaResult result = Piko.builder().theme(theme).seed(300 + theme.ordinal()).build().generate();
+            Document document = factory.newDocumentBuilder()
+                    .parse(new InputSource(new StringReader(result.svg())));
+
+            assertEquals("svg", document.getDocumentElement().getLocalName(), theme.id());
+            assertEquals("http://www.w3.org/2000/svg", document.getDocumentElement().getNamespaceURI(), theme.id());
+            assertTrue(document.getElementsByTagNameNS("http://www.w3.org/2000/svg", "path").getLength() > 0,
+                    theme.id());
+            assertEquals(0, document.getElementsByTagNameNS("http://www.w3.org/2000/svg", "text").getLength(), theme.id());
+            assertEquals(0, document.getElementsByTagNameNS("http://www.w3.org/2000/svg", "image").getLength(), theme.id());
+            assertEquals(0, document.getElementsByTagNameNS("http://www.w3.org/2000/svg", "use").getLength(), theme.id());
+        }
     }
 }
